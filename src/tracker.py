@@ -19,7 +19,7 @@ from src.visualization import show_frame, show_crops, show_scores
 
 # read default parameters and override with custom ones
 def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz, filename, image, templates_z, scores, start_frame):
-    num_frames = np.size(frame_name_list)
+    num_frames = np.size(frame_name_list) - start_frame
     # stores tracker's output for evaluation
     bboxes = np.zeros((num_frames,4))
 
@@ -61,7 +61,7 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
                                                                         siam.pos_x_ph: pos_x,
                                                                         siam.pos_y_ph: pos_y,
                                                                         siam.z_sz_ph: z_sz,
-                                                                        filename: frame_name_list[0]})
+                                                                        filename: frame_name_list[start_frame]})
         new_templates_z_ = templates_z_
 
         t_start = time.time()
@@ -81,7 +81,7 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
                     siam.x_sz1_ph: scaled_search_area[1],
                     siam.x_sz2_ph: scaled_search_area[2],
                     templates_z: np.squeeze(templates_z_),
-                    filename: frame_name_list[i],
+                    filename: frame_name_list[i + start_frame],
                 }, **run_opts)
             scores_ = np.squeeze(scores_)
             # penalize change of scale
@@ -102,6 +102,8 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
             pos_x, pos_y = _update_target_position(pos_x, pos_y, score_, final_score_sz, design.tot_stride, design.search_sz, hp.response_up, x_sz)
             # convert <cx,cy,w,h> to <x,y,w,h> and save output
             bboxes[i,:] = pos_x-target_w/2, pos_y-target_h/2, target_w, target_h
+
+
             # update the target representation with a rolling average
             if hp.z_lr>0:
                 new_templates_z_ = sess.run([templates_z], feed_dict={
@@ -117,7 +119,9 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
             z_sz = (1-hp.scale_lr)*z_sz + hp.scale_lr*scaled_exemplar[new_scale_id]
             
             if run.visualization:
-                show_frame(image_, bboxes[i,:], 1)        
+                show_frame(i,image_, bboxes[i,:], 1)
+                #show_scores(i,scores_, 2)
+                #show_crops( 3)
 
         t_elapsed = time.time() - t_start
         speed = num_frames/t_elapsed
@@ -134,6 +138,11 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
     plt.close('all')
 
     return bboxes, speed
+
+#TODO loss of track detection
+    #if bounding box not in frame _ loss
+    #then try to reinitialize
+    #segmentation and search in zone using last known template
 
 
 def _update_target_position(pos_x, pos_y, score, final_score_sz, tot_stride, search_sz, response_up, x_sz):
