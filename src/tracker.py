@@ -12,7 +12,7 @@ import time
 
 import src.siamese as siam
 from src.visualization import show_frame, show_crops, show_scores
-
+from darkflow.net.build import TFNet
 
 # gpu_device = 2
 # os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_device)
@@ -39,6 +39,10 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
     min_x = hp.scale_min * x_sz
     max_x = hp.scale_max * x_sz
 
+    #detector settings
+    options = {"model": "/home/mdinh/siamfc-tf/cfg/yolo-mio.cfg", "pbload": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.pb", "metaLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.meta", "threshold": 0.1}
+
+    tfnet = TFNet(options)
     # run_metadata = tf.RunMetadata()
     # run_opts = {
     #     'options': tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE),
@@ -114,7 +118,9 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
                                                                 })
 
                 templates_z_=(1-hp.z_lr)*np.asarray(templates_z_) + hp.z_lr*np.asarray(new_templates_z_)
-            
+            #run detector
+            result = tfnet.return_predict(image_)
+            print(result)
             # update template patch size
             z_sz = (1-hp.scale_lr)*z_sz + hp.scale_lr*scaled_exemplar[new_scale_id]
             

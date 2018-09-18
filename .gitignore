@@ -1,5 +1,9 @@
 data/
 pretrained/
+bin/
+build/
+built_graph/
+
 *.ipynb_checkpoints
 *.pyc
 *.swp
