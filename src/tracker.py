@@ -9,9 +9,10 @@ import csv
 import numpy as np
 from PIL import Image
 import time
+import json
 
 import src.siamese as siam
-from src.visualization import show_frame, show_crops, show_scores
+from src.visualization import show_frame, show_crops, show_scores, show_detection
 from darkflow.net.build import TFNet
 
 # gpu_device = 2
@@ -40,7 +41,7 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
     max_x = hp.scale_max * x_sz
 
     #detector settings
-    options = {"model": "/home/mdinh/siamfc-tf/cfg/yolo-mio.cfg", "pbload": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.pb", "metaLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.meta", "threshold": 0.1}
+    options = {"model": "/home/mdinh/siamfc-tf/cfg/yolo-mio.cfg", "pbLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.pb", "metaLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.meta", "threshold": 0.6, "gpu": 0.5}
 
     tfnet = TFNet(options)
     # run_metadata = tf.RunMetadata()
@@ -120,12 +121,23 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
                 templates_z_=(1-hp.z_lr)*np.asarray(templates_z_) + hp.z_lr*np.asarray(new_templates_z_)
             #run detector
             result = tfnet.return_predict(image_)
-            print(result)
+            bbox_detection = [[0,0,0,0]]
+            #print ([sorted([object['confidence'] for object in result])])
+            if len(result) > 0:
+                #maxdetection = max(result, key=lambda x:x['confidence'])
+                #mindetection = min(result, key=lambda x: x['confidence'])
+                for detection in result:
+                    bbox_detection.append([detection['topleft']['x'],detection['topleft']['y'], detection['bottomright']['x'] - detection['topleft']['x'], detection['bottomright']['y'] - detection['topleft']['y']])
+                #print (bbox_detection)
+                #print(maxdetection, mindetection)
+            #detections = [json.dumps(object) for object in result]
+            #print(detections[0])
             # update template patch size
             z_sz = (1-hp.scale_lr)*z_sz + hp.scale_lr*scaled_exemplar[new_scale_id]
             
             if run.visualization:
-                show_frame(i,image_, bboxes[i,:], 1)
+                show_frame(image_, bboxes[i,:],bbox_detection, 1)
+                #show_detection(image_, bbox_detection,1)
                 #show_scores(i,scores_, 2)
                 #show_crops( 3)
 

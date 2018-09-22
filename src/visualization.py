@@ -3,17 +3,33 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 
 
-def show_frame(frame, bbox, fig_n):
+def show_frame(frame, bbox, bbox_detection, fig_n):
     fig = plt.figure(fig_n)
     ax = fig.add_subplot(111)
     r = patches.Rectangle((bbox[0],bbox[1]), bbox[2], bbox[3], linewidth=2, edgecolor='r', fill=False)
     ax.imshow(np.uint8(frame))
     ax.add_patch(r)
+    for box in bbox_detection:
+        r = patches.Rectangle((box[0], box[1]), box[2], box[3], linewidth=2, edgecolor='b', fill=False)
+        ax.imshow(np.uint8(frame))
+        ax.add_patch(r)
     plt.ion()
     plt.show()
     plt.pause(0.001)
     plt.clf()
 
+def show_detection(frame, bbox, fig_n):
+    fig = plt.figure(fig_n)
+    ax = fig.add_subplot(111)
+
+    for box in bbox:
+        r = patches.Rectangle((box[0],box[1]), box[2], box[3], linewidth=2, edgecolor='b', fill=False)
+        ax.imshow(np.uint8(frame))
+        ax.add_patch(r)
+    plt.ion()
+    plt.show()
+    plt.pause(0.001)
+    plt.clf()
 
 def show_crops(crops, fig_n):
     fig = plt.figure(fig_n)
