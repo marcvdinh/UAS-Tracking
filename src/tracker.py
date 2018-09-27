@@ -10,6 +10,7 @@ import numpy as np
 from PIL import Image
 import time
 import json
+import utils
 
 import src.siamese as siam
 from src.visualization import show_frame, show_crops, show_scores, show_detection
@@ -41,7 +42,7 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
     max_x = hp.scale_max * x_sz
 
     #detector settings
-    options = {"model": "/home/mdinh/siamfc-tf/cfg/yolo-mio.cfg", "pbLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.pb", "metaLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.meta", "threshold": 0.6, "gpu": 0.5}
+    options = {"model": "/home/mdinh/siamfc-tf/cfg/yolo-mio.cfg", "pbLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.pb", "metaLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.meta", "gpu": 0.6}
 
     tfnet = TFNet(options)
     # run_metadata = tf.RunMetadata()
@@ -108,7 +109,30 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
             # convert <cx,cy,w,h> to <x,y,w,h> and save output
             bboxes[i,:] = pos_x-target_w/2, pos_y-target_h/2, target_w, target_h
 
+            # run detector
+            result = tfnet.return_predict(image_)
 
+            bbox_detection = []
+            # print ([sorted([object['confidence'] for object in result])])
+            if len(result) > 0:
+                maxdetection = max(result, key=lambda x: x['confidence'])
+                # mindetection = min(result, key=lambda x: x['confidence'])
+                # for detection in result:
+                #    bbox_detection.append([detection['topleft']['x'],detection['topleft']['y'], detection['bottomright']['x'] - detection['topleft']['x'], detection['bottomright']['y'] - detection['topleft']['y']])
+                bbox_detection.append([maxdetection['topleft']['x'], maxdetection['topleft']['y'],
+                                       maxdetection['bottomright']['x'] - maxdetection['topleft']['x'],
+                                       maxdetection['bottomright']['y'] - maxdetection['topleft']['y']])
+
+                print (bbox_detection[0])
+                print (bboxes[i,:])
+                if bbox_detection:
+                    iou = utils.iou(bbox_detection[0], bboxes[i, :])
+                    print (iou)
+
+                # TODO reinitialize when tracker collides with edge with detection closest to the last position
+
+
+                #bboxes[i,:] = bbox_detection
             # update the target representation with a rolling average
             if hp.z_lr>0:
                 new_templates_z_ = sess.run([templates_z], feed_dict={
@@ -119,19 +143,8 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
                                                                 })
 
                 templates_z_=(1-hp.z_lr)*np.asarray(templates_z_) + hp.z_lr*np.asarray(new_templates_z_)
-            #run detector
-            result = tfnet.return_predict(image_)
-            bbox_detection = [[0,0,0,0]]
-            #print ([sorted([object['confidence'] for object in result])])
-            if len(result) > 0:
-                #maxdetection = max(result, key=lambda x:x['confidence'])
-                #mindetection = min(result, key=lambda x: x['confidence'])
-                for detection in result:
-                    bbox_detection.append([detection['topleft']['x'],detection['topleft']['y'], detection['bottomright']['x'] - detection['topleft']['x'], detection['bottomright']['y'] - detection['topleft']['y']])
-                #print (bbox_detection)
-                #print(maxdetection, mindetection)
-            #detections = [json.dumps(object) for object in result]
-            #print(detections[0])
+
+
             # update template patch size
             z_sz = (1-hp.scale_lr)*z_sz + hp.scale_lr*scaled_exemplar[new_scale_id]
             

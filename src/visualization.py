@@ -9,6 +9,7 @@ def show_frame(frame, bbox, bbox_detection, fig_n):
     r = patches.Rectangle((bbox[0],bbox[1]), bbox[2], bbox[3], linewidth=2, edgecolor='r', fill=False)
     ax.imshow(np.uint8(frame))
     ax.add_patch(r)
+
     for box in bbox_detection:
         r = patches.Rectangle((box[0], box[1]), box[2], box[3], linewidth=2, edgecolor='b', fill=False)
         ax.imshow(np.uint8(frame))

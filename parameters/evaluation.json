@@ -4,5 +4,5 @@
 	"stop_on_failure": 0,
 	"dataset": "validation",
 	"video": "car6",
-	"start_frame": 0
+	"start_frame": 1000
 }
