@@ -5,6 +5,7 @@ import sys
 import os.path
 from src.convolutional import set_convolutional
 from src.crops import extract_crops_z, extract_crops_x, pad_frame, resize_images
+from visualization import show_crops
 sys.path.append('../')
 
 pos_x_ph = tf.placeholder(tf.float64)
@@ -63,7 +64,8 @@ def build_tracking_graph(final_score_sz, design, env):
     # upsample the score maps
     scores_up = tf.image.resize_images(scores, [final_score_sz, final_score_sz],
         method=tf.image.ResizeMethod.BICUBIC, align_corners=True)
-    return filename, image, templates_z, scores_up
+
+    return filename, image, templates_z, scores_up, z_crops, x_crops, frame_padded_x, frame_padded_z
 
 
 # import pretrained Siamese network from matconvnet

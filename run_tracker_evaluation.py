@@ -21,7 +21,7 @@ def main():
     # [1 4 7] => [1 1 2 3 4 5 6 7 7]  (length 3*3)
     final_score_sz = hp.response_up * (design.score_sz - 1) + 1
     # build TF graph once for all
-    filename, image, templates_z, scores = siam.build_tracking_graph(final_score_sz, design, env)
+    filename, image, templates_z, scores, z_crops, x_crops, frame_padded_z, frame_padded_x = siam.build_tracking_graph(final_score_sz, design, env)
 
     # iterate through all videos of evaluation.dataset
     if evaluation.video == 'all':
@@ -46,7 +46,7 @@ def main():
                 idx = i * evaluation.n_subseq + j
                 bboxes, speed[idx] = tracker(hp, run, design, frame_name_list_, pos_x, pos_y,
                                                                      target_w, target_h, final_score_sz, filename,
-                                                                     image, templates_z, scores, start_frame)
+                                                                     image, templates_z, scores, start_frame, frame_sz)
                 lengths[idx], precisions[idx], precisions_auc[idx], ious[idx] = _compile_results(gt_, bboxes, evaluation.dist_threshold)
                 print str(i) + ' -- ' + videos_list[i] + \
                 ' -- Precision: ' + "%.2f" % precisions[idx] + \
@@ -68,10 +68,10 @@ def main():
         print
 
     else:
-        gt, frame_name_list, _, _ = _init_video(env, evaluation, evaluation.video)
+        gt, frame_name_list, frame_sz, _ = _init_video(env, evaluation, evaluation.video)
         pos_x, pos_y, target_w, target_h = region_to_bbox(gt[evaluation.start_frame])
         bboxes, speed = tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz,
-                                filename, image, templates_z, scores, evaluation.start_frame)
+                                filename, image, templates_z, scores, evaluation.start_frame, frame_sz, z_crops, x_crops, frame_padded_z, frame_padded_x)
         _, precision, precision_auc, iou = _compile_results(gt, bboxes, evaluation.dist_threshold)
         print evaluation.video + \
               ' -- Precision ' + "(%d px)" % evaluation.dist_threshold + ': ' + "%.2f" % precision +\

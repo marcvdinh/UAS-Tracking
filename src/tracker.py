@@ -20,11 +20,11 @@ from darkflow.net.build import TFNet
 # os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_device)
 
 # read default parameters and override with custom ones
-def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz, filename, image, templates_z, scores, start_frame):
+def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz, filename, image, templates_z, scores, start_frame, frame_sz, z_crops, x_crops, frame_padded_x, frame_padded_z):
     num_frames = np.size(frame_name_list) - start_frame
     # stores tracker's output for evaluation
     bboxes = np.zeros((num_frames,4))
-
+    reinitialize = False
     scale_factors = hp.scale_step**np.linspace(-np.ceil(hp.scale_num/2), np.ceil(hp.scale_num/2), hp.scale_num)
     # cosine window to penalize large displacements    
     hann_1d = np.expand_dims(np.hanning(final_score_sz), axis=0)
@@ -42,7 +42,7 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
     max_x = hp.scale_max * x_sz
 
     #detector settings
-    options = {"model": "/home/mdinh/siamfc-tf/cfg/yolo-mio.cfg", "pbLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.pb", "metaLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.meta", "gpu": 0.6}
+    options = {"model": "/home/mdinh/siamfc-tf/cfg/yolo-mio.cfg", "pbLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.pb", "metaLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.meta", "gpu": 0.6, "threshold": 0.1}
 
     tfnet = TFNet(options)
     # run_metadata = tf.RunMetadata()
@@ -78,8 +78,8 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
             scaled_search_area = x_sz * scale_factors
             scaled_target_w = target_w * scale_factors
             scaled_target_h = target_h * scale_factors
-            image_, scores_ = sess.run(
-                [image, scores],
+            image_, scores_, x_crops_ = sess.run(
+                [image, scores, x_crops],
                 feed_dict={
                     siam.pos_x_ph: pos_x,
                     siam.pos_y_ph: pos_y,
@@ -106,8 +106,14 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
             # apply displacement penalty
             score_ = (1-hp.window_influence)*score_ + hp.window_influence*penalty
             pos_x, pos_y = _update_target_position(pos_x, pos_y, score_, final_score_sz, design.tot_stride, design.search_sz, hp.response_up, x_sz)
+
             # convert <cx,cy,w,h> to <x,y,w,h> and save output
             bboxes[i,:] = pos_x-target_w/2, pos_y-target_h/2, target_w, target_h
+            print (bboxes[i,:])
+            print (frame_sz)
+            if pos_x > frame_sz[1] or pos_y > frame_sz[0]:
+                print('OOB')
+                reinitialize = True
 
             # run detector
             result = tfnet.return_predict(image_)
@@ -117,17 +123,34 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
             if len(result) > 0:
                 maxdetection = max(result, key=lambda x: x['confidence'])
                 # mindetection = min(result, key=lambda x: x['confidence'])
-                # for detection in result:
-                #    bbox_detection.append([detection['topleft']['x'],detection['topleft']['y'], detection['bottomright']['x'] - detection['topleft']['x'], detection['bottomright']['y'] - detection['topleft']['y']])
-                bbox_detection.append([maxdetection['topleft']['x'], maxdetection['topleft']['y'],
-                                       maxdetection['bottomright']['x'] - maxdetection['topleft']['x'],
-                                       maxdetection['bottomright']['y'] - maxdetection['topleft']['y']])
+                for detection in result:
+                   bbox_detection.append([detection['topleft']['x'],detection['topleft']['y'], detection['bottomright']['x'] - detection['topleft']['x'], detection['bottomright']['y'] - detection['topleft']['y']])
+                best_detection = ([maxdetection['topleft']['x'], maxdetection['topleft']['y'],
+                                      maxdetection['bottomright']['x'] - maxdetection['topleft']['x'],
+                                      maxdetection['bottomright']['y'] - maxdetection['topleft']['y']])
 
+
+
+                print("frame number: " + str(i))
                 print (bbox_detection[0])
                 print (bboxes[i,:])
+
                 if bbox_detection:
                     iou = utils.iou(bbox_detection[0], bboxes[i, :])
+                    scale = utils.scale(bbox_detection[0], bboxes[i, :])
                     print (iou)
+                    print(scale)
+
+                if iou > 0 and iou < 0.5:
+                    print("drift")
+                    reinitialize = True
+                    bboxes[i, :] = np.asarray(best_detection)
+                    pos_x = (maxdetection['topleft']['x'] + maxdetection['bottomright']['x'])/2
+                    pos_y = (maxdetection['bottomright']['y'] + maxdetection['topleft']['y'])/2
+
+
+                    print(pos_x)
+                    print (pos_y)
 
                 # TODO reinitialize when tracker collides with edge with detection closest to the last position
 
@@ -141,8 +164,34 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
                                                                 siam.z_sz_ph: z_sz,
                                                                 image: image_
                                                                 })
+                if reinitialize == True:
+                    print(reinitialize)
 
-                templates_z_=(1-hp.z_lr)*np.asarray(templates_z_) + hp.z_lr*np.asarray(new_templates_z_)
+                    # assign new target height and width
+                    if maxdetection:
+                        target_h = maxdetection['bottomright']['y'] - maxdetection['topleft']['y']
+                        target_w = maxdetection['bottomright']['x'] - maxdetection['topleft']['x']
+
+                    context = design.context * (target_w + target_h)
+                    z_sz = np.sqrt(np.prod((target_w + context) * (target_h + context)))
+                    x_sz = float(design.search_sz) / design.exemplar_sz * z_sz
+
+                    # thresholds to saturate patches shrinking/growing
+                    min_z = hp.scale_min * z_sz
+                    max_z = hp.scale_max * z_sz
+                    min_x = hp.scale_min * x_sz
+                    max_x = hp.scale_max * x_sz
+
+                    templates_z_ = np.asarray(new_templates_z_)
+
+                    reinitialize = False
+                else:
+                    templates_z_=(1-hp.z_lr)*np.asarray(templates_z_) + hp.z_lr*np.asarray(new_templates_z_)
+                    print(reinitialize)
+
+
+
+
 
 
             # update template patch size
@@ -150,10 +199,11 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
             
             if run.visualization:
                 show_frame(image_, bboxes[i,:],bbox_detection, 1)
+                show_crops(x_crops_,2)
                 #show_detection(image_, bbox_detection,1)
-                #show_scores(i,scores_, 2)
-                #show_crops( 3)
 
+
+        #end of loop
         t_elapsed = time.time() - t_start
         speed = num_frames/t_elapsed
 

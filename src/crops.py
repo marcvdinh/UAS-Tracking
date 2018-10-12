@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 import functools
+from visualization import show_crops
 
 
 def resize_images(images, size, resample):
@@ -68,6 +69,7 @@ def extract_crops_z(im, npad, pos_x, pos_y, sz_src, sz_dst):
     crop = tf.image.resize_images(crop, [sz_dst, sz_dst], method=tf.image.ResizeMethod.BILINEAR)
     # crops = tf.stack([crop, crop, crop])
     crops = tf.expand_dims(crop, axis=0)
+    #show_crops(crops,2)
     return crops
 
 
@@ -103,6 +105,7 @@ def extract_crops_x(im, npad, pos_x, pos_y, sz_src0, sz_src1, sz_src2, sz_dst):
     crop_s1 = tf.image.resize_images(crop_s1, [sz_dst, sz_dst], method=tf.image.ResizeMethod.BILINEAR)
     crop_s2 = tf.image.resize_images(search_area, [sz_dst, sz_dst], method=tf.image.ResizeMethod.BILINEAR)
     crops = tf.stack([crop_s0, crop_s1, crop_s2])
+
     return crops
 
 # Can't manage to use tf.crop_and_resize, which would be ideal!
