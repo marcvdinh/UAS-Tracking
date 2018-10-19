@@ -70,7 +70,7 @@ def extract_crops_z(im, npad, pos_x, pos_y, sz_src, sz_dst):
     # crops = tf.stack([crop, crop, crop])
     crops = tf.expand_dims(crop, axis=0)
     #show_crops(crops,2)
-    return crops
+    return crops, tr_x, tr_y
 
 
 def extract_crops_x(im, npad, pos_x, pos_y, sz_src0, sz_src1, sz_src2, sz_dst):
@@ -105,8 +105,20 @@ def extract_crops_x(im, npad, pos_x, pos_y, sz_src0, sz_src1, sz_src2, sz_dst):
     crop_s1 = tf.image.resize_images(crop_s1, [sz_dst, sz_dst], method=tf.image.ResizeMethod.BILINEAR)
     crop_s2 = tf.image.resize_images(search_area, [sz_dst, sz_dst], method=tf.image.ResizeMethod.BILINEAR)
     crops = tf.stack([crop_s0, crop_s1, crop_s2])
+    x_0 = tf.cast(tr_x, tf.int32) + tf.cast(offset_s0, tf.int32)
 
-    return crops
+    y_0 = tf.cast(tr_y, tf.int32) + tf.cast(offset_s0, tf.int32)
+
+    coord_0 = tf.stack([x_0,y_0])
+    coord_1 = tf.stack([tf.cast(tr_x, tf.int32), tf.cast(tr_y, tf.int32)])
+    x_2 = tf.cast(tr_x, tf.int32) + tf.cast(offset_s1, tf.int32)
+    y_2 = tf.cast(tr_y, tf.int32) + tf.cast(offset_s1, tf.int32)
+    coord_2 = tf.stack([x_2, y_2])
+
+
+    tl_coord = tf.stack([coord_0, coord_1, coord_2])
+
+    return crops, tl_coord
 
 # Can't manage to use tf.crop_and_resize, which would be ideal!
 # im:  A 4-D tensor of shape [batch, image_height, image_width, depth]

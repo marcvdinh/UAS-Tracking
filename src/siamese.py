@@ -37,6 +37,7 @@ def build_tracking_graph(final_score_sz, design, env):
 
     filename = tf.placeholder(tf.string, [], name='filename')
     image_file = tf.read_file(filename)
+
     # Decode the image as a JPEG file, this will turn it into a Tensor
     image = tf.image.decode_jpeg(image_file)
     image = 255.0 * tf.image.convert_image_dtype(image, tf.float32)
@@ -50,11 +51,12 @@ def build_tracking_graph(final_score_sz, design, env):
     frame_padded_z, npad_z = pad_frame(image, frame_sz, pos_x_ph, pos_y_ph, z_sz_ph, avg_chan)
     frame_padded_z = tf.cast(frame_padded_z, tf.float32)
     # extract tensor of z_crops
-    z_crops = extract_crops_z(frame_padded_z, npad_z, pos_x_ph, pos_y_ph, z_sz_ph, design.exemplar_sz)
+    z_crops,tr_x_, tr_y_ = extract_crops_z(frame_padded_z, npad_z, pos_x_ph, pos_y_ph, z_sz_ph, design.exemplar_sz)
     frame_padded_x, npad_x = pad_frame(image, frame_sz, pos_x_ph, pos_y_ph, x_sz2_ph, avg_chan)
     frame_padded_x = tf.cast(frame_padded_x, tf.float32)
     # extract tensor of x_crops (3 scales)
-    x_crops = extract_crops_x(frame_padded_x, npad_x, pos_x_ph, pos_y_ph, x_sz0_ph, x_sz1_ph, x_sz2_ph, design.search_sz)
+    x_crops, anchor_coord = extract_crops_x(frame_padded_x, npad_x, pos_x_ph, pos_y_ph, x_sz0_ph, x_sz1_ph, x_sz2_ph, design.search_sz)
+
     # use crops as input of (MatConvnet imported) pre-trained fully-convolutional Siamese net
     template_z, templates_x, p_names_list, p_val_list = _create_siamese(os.path.join(env.root_pretrained,design.net), x_crops, z_crops)
     template_z = tf.squeeze(template_z)
@@ -65,8 +67,7 @@ def build_tracking_graph(final_score_sz, design, env):
     scores_up = tf.image.resize_images(scores, [final_score_sz, final_score_sz],
         method=tf.image.ResizeMethod.BICUBIC, align_corners=True)
 
-    return filename, image, templates_z, scores_up, z_crops, x_crops, frame_padded_x, frame_padded_z
-
+    return filename, image, templates_z, scores_up, z_crops, x_crops, anchor_coord
 
 # import pretrained Siamese network from matconvnet
 def _create_siamese(net_path, net_x, net_z):

@@ -21,7 +21,7 @@ def main():
     # [1 4 7] => [1 1 2 3 4 5 6 7 7]  (length 3*3)
     final_score_sz = hp.response_up * (design.score_sz - 1) + 1
     # build TF graph once for all
-    filename, image, templates_z, scores, z_crops, x_crops, frame_padded_z, frame_padded_x = siam.build_tracking_graph(final_score_sz, design, env)
+    filename, image, templates_z, scores, z_crops, x_crops, anchor_coord = siam.build_tracking_graph(final_score_sz, design, env)
 
     # iterate through all videos of evaluation.dataset
     if evaluation.video == 'all':
@@ -71,7 +71,7 @@ def main():
         gt, frame_name_list, frame_sz, _ = _init_video(env, evaluation, evaluation.video)
         pos_x, pos_y, target_w, target_h = region_to_bbox(gt[evaluation.start_frame])
         bboxes, speed = tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz,
-                                filename, image, templates_z, scores, evaluation.start_frame, frame_sz, z_crops, x_crops, frame_padded_z, frame_padded_x)
+                                filename, image, templates_z, scores, evaluation.start_frame, evaluation.video, frame_sz, z_crops, x_crops, anchor_coord)
         _, precision, precision_auc, iou = _compile_results(gt, bboxes, evaluation.dist_threshold)
         print evaluation.video + \
               ' -- Precision ' + "(%d px)" % evaluation.dist_threshold + ': ' + "%.2f" % precision +\
