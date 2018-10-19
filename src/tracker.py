@@ -113,67 +113,67 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
 
             #run detector for drift
 
-            if abs(pos_x) > frame_sz[1] or abs(pos_y) > frame_sz[0] or pos_x < 0 or pos_y < 0:
-                #print('OOB')
-                OOB = True
-                reinitialize = True
-                best_detection = []
-
-
-            else:
-                OOB = False
-                bbox_crop = []
-                best_detection = []
-
-
-            if OOB == False:
-                result_crop = tfnet.return_predict(x_crops_[new_scale_id, :, :])
+            # if abs(pos_x) > frame_sz[1] or abs(pos_y) > frame_sz[0] or pos_x < 0 or pos_y < 0:
+            #     #print('OOB')
+            #     OOB = True
+            #     reinitialize = True
+            #     best_detection = []
+            #
+            #
+            # else:
+            #     OOB = False
+            #     bbox_crop = []
+            #     best_detection = []
+            #
+            #
+            # if OOB == False:
+            #     result_crop = tfnet.return_predict(x_crops_[new_scale_id, :, :])
             #print (result_crop)
 
 
-            if result_crop:
-                maxdetection_crop = max(result_crop, key=lambda x: x['confidence'])
-
-
-
-                for detection in result_crop:
-                    bbox_crop.append([detection['topleft']['x'], detection['topleft']['y'],
-                                          detection['bottomright']['x'] - detection['topleft']['x'],
-                                          detection['bottomright']['y'] - detection['topleft']['y']])
-                    best_crop = ([maxdetection_crop['topleft']['x'], maxdetection_crop['topleft']['y'],
-                                      maxdetection_crop['bottomright']['x'] - maxdetection_crop['topleft']['x'],
-                                      maxdetection_crop['bottomright']['y'] - maxdetection_crop['topleft']['y']])
-
-                    peak_x = (maxdetection_crop['bottomright']['x'] + maxdetection_crop['topleft']['x']) / 4
-                    peak_y = (maxdetection_crop['bottomright']['y'] + maxdetection_crop['topleft']['y'])  / 4
-
-
-                    if peak_x in range(100,200) and peak_y in range(100,200):
-                        reinitialize = True
-
-                        # generate an augmentation map
-                        score_augmentation = np.full((257, 257), float(min_score))
-                        for x in range(peak_x - 5, peak_x + 5):
-                            for y in range(peak_y - 5, peak_y + 5):
-                                score_augmentation[y, x] = max_score
-
-                    bbox_frame = [ element * scaled_search_area[new_scale_id] / design.search_sz for element in best_crop ]
-                    bbox_frame[0] = best_crop[0] + anchor_coord__[new_scale_id, 1]
-                    bbox_frame[1] = best_crop[1] + anchor_coord__[new_scale_id, 0]
-
-                    #print(anchor_coord__[new_scale_id, 0])
-                    #print(anchor_coord__[new_scale_id, 1])
-
-                    #pos_x = 2 * peak_x * scaled_search_area[new_scale_id] / 512
-                    #pos_y = 2 * peak_y * scaled_search_area[new_scale_id] / 512
-
-                    #generate an augmentation map
-
-
-
-
-                    target_h = (bbox_frame[3] + target_h) / 2
-                    target_w =  (bbox_frame[2] + target_w) / 2
+            # if result_crop:
+            #     maxdetection_crop = max(result_crop, key=lambda x: x['confidence'])
+            #
+            #
+            #
+            #     for detection in result_crop:
+            #         bbox_crop.append([detection['topleft']['x'], detection['topleft']['y'],
+            #                               detection['bottomright']['x'] - detection['topleft']['x'],
+            #                               detection['bottomright']['y'] - detection['topleft']['y']])
+            #         best_crop = ([maxdetection_crop['topleft']['x'], maxdetection_crop['topleft']['y'],
+            #                           maxdetection_crop['bottomright']['x'] - maxdetection_crop['topleft']['x'],
+            #                           maxdetection_crop['bottomright']['y'] - maxdetection_crop['topleft']['y']])
+            #
+            #         peak_x = (maxdetection_crop['bottomright']['x'] + maxdetection_crop['topleft']['x']) / 4
+            #         peak_y = (maxdetection_crop['bottomright']['y'] + maxdetection_crop['topleft']['y'])  / 4
+            #
+            #
+            #         if peak_x in range(100,200) and peak_y in range(100,200):
+            #             reinitialize = True
+            #
+            #             # generate an augmentation map
+            #             score_augmentation = np.full((257, 257), float(min_score))
+            #             for x in range(peak_x - 5, peak_x + 5):
+            #                 for y in range(peak_y - 5, peak_y + 5):
+            #                     score_augmentation[y, x] = max_score
+            #
+            #         bbox_frame = [ element * scaled_search_area[new_scale_id] / design.search_sz for element in best_crop ]
+            #         bbox_frame[0] = best_crop[0] + anchor_coord__[new_scale_id, 1]
+            #         bbox_frame[1] = best_crop[1] + anchor_coord__[new_scale_id, 0]
+            #
+            #         #print(anchor_coord__[new_scale_id, 0])
+            #         #print(anchor_coord__[new_scale_id, 1])
+            #
+            #         #pos_x = 2 * peak_x * scaled_search_area[new_scale_id] / 512
+            #         #pos_y = 2 * peak_y * scaled_search_area[new_scale_id] / 512
+            #
+            #         #generate an augmentation map
+            #
+            #
+            #
+            #
+            #         target_h = (bbox_frame[3] + target_h) / 2
+            #         target_w =  (bbox_frame[2] + target_w) / 2
 
                     #print(scale_factors[new_scale_id])
 
@@ -212,50 +212,26 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
 
             # run detector on whole frame if out of bounds
 
-            if OOB == True:
-                OOB = False
-                result = tfnet.return_predict(image_)
+            # if OOB == True:
+            #     OOB = False
+            #     result = tfnet.return_predict(image_)
+            #
+            #
+            #
+            #
+            #     #print ([sorted([object['confidence'] for object in result])])
+            #     if len(result) > 0:
+            #         maxdetection = max(result, key=lambda x: x['confidence'])
+            #
+            #        #mindetection = min(result, key=lambda x: x['confidence'])
+            #         for detection in result:
+            #             bbox_detection.append([detection['topleft']['x'],detection['topleft']['y'], detection['bottomright']['x'] - detection['topleft']['x'], detection['bottomright']['y'] - detection['topleft']['y']])
+            #
+            #         best_detection = ([maxdetection['topleft']['x'], maxdetection['topleft']['y'],
+            #                           maxdetection['bottomright']['x'] - maxdetection['topleft']['x'],
+            #                           maxdetection['bottomright']['y'] - maxdetection['topleft']['y']])
 
 
-
-
-                #print ([sorted([object['confidence'] for object in result])])
-                if len(result) > 0:
-                    maxdetection = max(result, key=lambda x: x['confidence'])
-
-                   #mindetection = min(result, key=lambda x: x['confidence'])
-                    for detection in result:
-                        bbox_detection.append([detection['topleft']['x'],detection['topleft']['y'], detection['bottomright']['x'] - detection['topleft']['x'], detection['bottomright']['y'] - detection['topleft']['y']])
-
-                    best_detection = ([maxdetection['topleft']['x'], maxdetection['topleft']['y'],
-                                      maxdetection['bottomright']['x'] - maxdetection['topleft']['x'],
-                                      maxdetection['bottomright']['y'] - maxdetection['topleft']['y']])
-
-
-
-                #print("frame number: " + str(i))
-                #print (bbox_detection[0])
-                #print (bboxes[i,:])
-                #print (bbox_crop)
-
-                # if best_detection:
-                #     iou = utils.iou(best_detection, bboxes[i, :])
-                #     scale = utils.scale(best_detection, bboxes[i, :])
-                #     print (iou)
-                #     print(scale)
-                #
-                #     if iou > 0 and iou < 0.5:
-                #         print("drift")
-                #         reinitialize = True
-                #         bboxes[i, :] = np.asarray(best_detection)
-                #         pos_x = (maxdetection['topleft']['x'] + maxdetection['bottomright']['x'])/2
-                #         pos_y = (maxdetection['bottomright']['y'] + maxdetection['topleft']['y'])/2
-                #
-                #
-                #         print(pos_x)
-                #         print (pos_y)
-
-                #TODO reinitialize when tracker collides with edge with detection closest to the last position
 
 
 
@@ -270,34 +246,34 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
 
                 #if best_crop:
 
-                if reinitialize == True:
-                    #print(reinitialize)
-
-                    # assign new target height and width
-                    if best_detection and OOB == True:
-                        OOB = False
-                        bboxes[i, :] = best_detection
-                        target_h = best_detection[3]
-                        target_w = best_detection[2]
-                        pos_x = best_detection[0] + best_detection[2]/2
-                        pos_y = best_detection[1] + best_detection[3]/2
-
-
-                    context = design.context * (target_w + target_h)
-                    z_sz = np.sqrt(np.prod((target_w + context) * (target_h + context)))
-                    x_sz = float(design.search_sz) / design.exemplar_sz * z_sz
-
-                    # thresholds to saturate patches shrinking/growing
-                    min_z = hp.scale_min * z_sz
-                    max_z = hp.scale_max * z_sz
-                    min_x = hp.scale_min * x_sz
-                    max_x = hp.scale_max * x_sz
-
-                    templates_z_ = np.asarray(new_templates_z_)
-
-                    reinitialize = False
-                else:
-                    templates_z_=(1-hp.z_lr)*np.asarray(templates_z_) + hp.z_lr*np.asarray(new_templates_z_)
+                # if reinitialize == True:
+                #     print(reinitialize)
+                #
+                #     # assign new target height and width
+                #     if best_detection and OOB == True:
+                #         OOB = False
+                #         bboxes[i, :] = best_detection
+                #         target_h = best_detection[3]
+                #         target_w = best_detection[2]
+                #         pos_x = best_detection[0] + best_detection[2]/2
+                #         pos_y = best_detection[1] + best_detection[3]/2
+                #
+                #
+                #     context = design.context * (target_w + target_h)
+                #     z_sz = np.sqrt(np.prod((target_w + context) * (target_h + context)))
+                #     x_sz = float(design.search_sz) / design.exemplar_sz * z_sz
+                #
+                #     # thresholds to saturate patches shrinking/growing
+                #     min_z = hp.scale_min * z_sz
+                #     max_z = hp.scale_max * z_sz
+                #     min_x = hp.scale_min * x_sz
+                #     max_x = hp.scale_max * x_sz
+                #
+                #     templates_z_ = np.asarray(new_templates_z_)
+                #
+                #     reinitialize = False
+                # else:
+                templates_z_=(1-hp.z_lr)*np.asarray(templates_z_) + hp.z_lr*np.asarray(new_templates_z_)
                     #print(reinitialize)
 
 

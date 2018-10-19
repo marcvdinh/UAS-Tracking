@@ -31,7 +31,7 @@ def show_detection(frame, bbox, fig_n):
         ax.imshow(np.uint8(frame))
         ax.add_patch(r)
     plt.ion()
-    #plt.show()
+    plt.show()
     plt.pause(0.001)
     plt.clf()
 
