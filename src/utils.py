@@ -34,3 +34,10 @@ def scale(boxA, boxB):
     scale = abs((width_A * height_A) / (width_B * height_B))
 
     return scale
+
+def gaussian_kernel(size,amplitude, sigma=5):
+    size = int(size)
+
+    x, y = np.mgrid[-size:size+1, -size:size+1]
+    g = amplitude * np.exp(-(x**2/(2*sigma**2)+y**2/(2*sigma**2)))
+    return g

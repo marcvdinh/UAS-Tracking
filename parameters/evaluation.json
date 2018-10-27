@@ -3,6 +3,6 @@
 	"dist_threshold": 20,
 	"stop_on_failure": 0,
 	"dataset": "validation",
-	"video": "car9",
+	"video": "car1",
 	"start_frame": 1
 }

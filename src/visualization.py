@@ -16,10 +16,10 @@ def show_frame(frame, bbox, bbox_detection, frame_number, video, fig_n):
     #    r = patches.Rectangle((box[0], box[1]), box[2], box[3], linewidth=2, edgecolor='b', fill=False)
     #    ax.imshow(np.uint8(frame))
     #    ax.add_patch(r)
-    #plt.ion()
+    plt.ion()
     plt.savefig("./data/local_detector/" + str(video)+"/" + str(frame_number) + ".png")
-    #plt.show()
-    #plt.pause(0.001)
+    plt.show()
+    plt.pause(0.001)
     plt.clf()
 
 def show_detection(frame, bbox, fig_n):
@@ -72,7 +72,8 @@ def show_scores(score, fig_n):
 def show_score(score,frame_number,video, fig_n):
     fig = plt.figure(fig_n)
     ax = fig.add_subplot(111)
-    ax.imshow(score, interpolation='none', cmap='hot')
+    ax.imshow(score, cmap=plt.get_cmap('jet'), interpolation='nearest')
+    #plt.colorbar()
     plt.ion()
     plt.show()
     plt.savefig("./data/score/" + str(video) + "/" + str(frame_number) + ".png")

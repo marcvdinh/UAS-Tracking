@@ -28,53 +28,20 @@ class SiamFCTracker(object):
         # [1 4 7] => [1 1 2 3 4 5 6 7 7]  (length 3*3)
         final_score_sz = hp.response_up * (design.score_sz - 1) + 1
         # build TF graph once for all
-        filename, image, templates_z, scores, z_crops, x_crops, anchor_coord = siam.build_tracking_graph(final_score_sz,
+        filename, image, templates_z, scores, z_crops, x_crops, anchor_coord = siam.build_tracking_graph(final_score_sz,  design, env)
 
-    def track():                                                                                                 design, env)
+
+    def track():
+
         gt, frame_name_list, frame_sz, _ = _init_video(env, evaluation, evaluation.video)
         pos_x, pos_y, target_w, target_h = region_to_bbox(gt[evaluation.start_frame])
         bboxes, speed = tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz,
                                 filename, image, templates_z, scores, evaluation.start_frame, evaluation.video,
                                 frame_sz, z_crops, x_crops, anchor_coord)
-        _, precision, precision_auc, iou = _compile_results(gt, bboxes, evaluation.dist_threshold)
-        print evaluation.video + \
-              ' -- Precision ' + "(%d px)" % evaluation.dist_threshold + ': ' + "%.2f" % precision + \
-              ' -- Precision AUC: ' + "%.2f" % precision_auc + \
-              ' -- IOU: ' + "%.2f" % iou + \
-              ' -- Speed: ' + "%.2f" % speed + ' --'
-        print
 
-    def _compile_results(gt, bboxes, dist_threshold):
-        l = np.size(bboxes, 0)
-        gt4 = np.zeros((l, 4))
-        new_distances = np.zeros(l)
-        new_ious = np.zeros(l)
-        n_thresholds = 50
-        precisions_ths = np.zeros(n_thresholds)
 
-        for i in range(l):
-            gt4[i, :] = region_to_bbox(gt[i, :], center=False)
-            new_distances[i] = _compute_distance(bboxes[i, :], gt4[i, :])
-            new_ious[i] = _compute_iou(bboxes[i, :], gt4[i, :])
 
-        # what's the percentage of frame in which center displacement is inferior to given threshold? (OTB metric)
-        precision = sum(new_distances < dist_threshold) / np.size(new_distances) * 100
 
-        # find above result for many thresholds, then report the AUC
-        thresholds = np.linspace(0, 25, n_thresholds + 1)
-        thresholds = thresholds[-n_thresholds:]
-        # reverse it so that higher values of precision goes at the beginning
-        thresholds = thresholds[::-1]
-        for i in range(n_thresholds):
-            precisions_ths[i] = sum(new_distances < thresholds[i]) / np.size(new_distances)
-
-        # integrate over the thresholds
-        precision_auc = np.trapz(precisions_ths)
-
-        # per frame averaged intersection over union (OTB metric)
-        iou = np.mean(new_ious) * 100
-
-        return l, precision, precision_auc, iou
 
     def _init_video(env, evaluation, video):
         video_folder = os.path.join(env.root_dataset, evaluation.dataset, video)
@@ -93,41 +60,6 @@ class SiamFCTracker(object):
 
         return gt, frame_name_list, frame_sz, n_frames
 
-    def _compute_distance(boxA, boxB):
-        a = np.array((boxA[0] + boxA[2] / 2, boxA[1] + boxA[3] / 2))
-        b = np.array((boxB[0] + boxB[2] / 2, boxB[1] + boxB[3] / 2))
-        dist = np.linalg.norm(a - b)
-
-        assert dist >= 0
-        assert dist != float('Inf')
-
-        return dist
-
-    def _compute_iou(boxA, boxB):
-        # determine the (x, y)-coordinates of the intersection rectangle
-        xA = max(boxA[0], boxB[0])
-        yA = max(boxA[1], boxB[1])
-        xB = min(boxA[0] + boxA[2], boxB[0] + boxB[2])
-        yB = min(boxA[1] + boxA[3], boxB[1] + boxB[3])
-
-        if xA < xB and yA < yB:
-            # compute the area of intersection rectangle
-            interArea = (xB - xA) * (yB - yA)
-            # compute the area of both the prediction and ground-truth
-            # rectangles
-            boxAArea = boxA[2] * boxA[3]
-            boxBArea = boxB[2] * boxB[3]
-            # compute the intersection over union by taking the intersection
-            # area and dividing it by the sum of prediction + ground-truth
-            # areas - the intersection area
-            iou = interArea / float(boxAArea + boxBArea - interArea)
-        else:
-            iou = 0
-
-        assert iou >= 0
-        assert iou <= 1.01
-
-        return iou
 
 handle = vot.VOT("rectangle")
 selection = handle.region()
