@@ -1,4 +1,5 @@
 import numpy as np
+import csv
 
 def iou(boxA, boxB):
     # determine the (x, y)-coordinates of the intersection rectangle
@@ -41,3 +42,9 @@ def gaussian_kernel(size,amplitude, sigma=5):
     x, y = np.mgrid[-size:size+1, -size:size+1]
     g = amplitude * np.exp(-(x**2/(2*sigma**2)+y**2/(2*sigma**2)))
     return g
+
+
+def bbox2csv(bbox, filename):
+    with open(filename, 'wb') as f:
+        writer = csv.writer(f)
+        writer.writerows(bbox)

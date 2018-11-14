@@ -21,13 +21,14 @@ from darkflow.net.build import TFNet
 # os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(gpu_device)
 
 # read default parameters and override with custom ones
-def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz, filename, image, templates_z, scores, start_frame, video_name, frame_sz, z_crops, x_crops, anchor_coord):
+def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz, filename, image, templates_z, scores, start_frame, video_name, frame_sz, z_crops, x_crops, anchor_coord, redetection_t):
     num_frames = np.size(frame_name_list) - start_frame
     # stores tracker's output for evaluation
     bboxes = np.zeros((num_frames,4))
-    bbox_frame = np.zeros(4)
-    best_crop = np.zeros(4)
-    best_detection = np.zeros(4)
+    bbox_frame = []
+    best_crop = []
+    best_detection = []
+    bbox_detection = [0,0,0,0]
     reinitialize = False
     scale_factors = hp.scale_step**np.linspace(-np.ceil(hp.scale_num/2), np.ceil(hp.scale_num/2), hp.scale_num)
     # cosine window to penalize large displacements    
@@ -39,6 +40,7 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
     z_sz = np.sqrt(np.prod((target_w+context)*(target_h+context)))
     x_sz = float(design.search_sz) / design.exemplar_sz * z_sz
 
+    #search_sz
     # thresholds to saturate patches shrinking/growing
     min_z = hp.scale_min * z_sz
     max_z = hp.scale_max * z_sz
@@ -46,7 +48,7 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
     max_x = hp.scale_max * x_sz
 
     #detector settings
-    options = {"model": "/home/mdinh/siamfc-tf/cfg/yolo-mio.cfg", "pbLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.pb", "metaLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.meta", "gpu": 0.2, "threshold": 0.4}
+    options = {"model": "/home/mdinh/siamfc-tf/cfg/yolo-mio.cfg", "pbLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.pb", "metaLoad": "/home/mdinh/siamfc-tf/built_graph/yolo-mio.meta", "gpu": 0.2, "threshold": 0.5}
 
     tfnet = TFNet(options)
     # run_metadata = tf.RunMetadata()
@@ -108,20 +110,21 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
 
             max_score = score_.max()
             min_score = score_.min()
-            print("max score:  " + str(max_score))
-            print("delta score   "+str(max_score-min_score))
-            if max_score < 10:
-                x_sz = 1.5 * x_sz
+            #print("max score:  " + str(max_score))
+            #print("delta score   "+str(max_score-min_score))
+            #if max_score < 5:
+
             if max_score < 5:
                 OOB = True
-            score_augmentation = np.full((257, 257), float(0))
+                reinitialize =True
+            #score_augmentation = np.full((x_sz, x_sz), float(0))
             #g = utils.gaussian_kernel(128,max_score, 2 * (target_w + target_h))
             #run detector for drift
 
             if abs(pos_x) > frame_sz[1] or abs(pos_y) > frame_sz[0] or pos_x < 0 or pos_y < 0:
-                print('OOB')
-                OOB = True
-                reinitialize = True
+                #print('OOB')
+                #OOB = True
+                #reinitialize = True
                 best_detection = []
 
 
@@ -134,20 +137,22 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
 
             if OOB == False:
                 result_crop = tfnet.return_predict(x_crops_[new_scale_id, :, :])
+
                 #print (result_crop)
 
 
-            if result_crop and  max_score - min_score < 20:
-                #print("using small detection")
+            if result_crop and  max_score - min_score < redetection_t:
+                reinitialize = True
+                print("using small detection")
                 maxdetection_crop = max(result_crop, key=lambda x: x['confidence'])
 
 
 
 
-                for detection in result_crop:
-                    bbox_crop.append([detection['topleft']['x'], detection['topleft']['y'],
-                                          detection['bottomright']['x'] - detection['topleft']['x'],
-                                          detection['bottomright']['y'] - detection['topleft']['y']])
+                #for detection in result_crop:
+                #    bbox_crop.append([detection['topleft']['x'], detection['topleft']['y'],
+                #                          detection['bottomright']['x'] - detection['topleft']['x'],
+                #                          detection['bottomright']['y'] - detection['topleft']['y']])
 
                 best_crop = ([maxdetection_crop['topleft']['x'], maxdetection_crop['topleft']['y'],
                                       maxdetection_crop['bottomright']['x'] - maxdetection_crop['topleft']['x'],
@@ -155,18 +160,20 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
                 peak_x = (maxdetection_crop['bottomright']['x'] + maxdetection_crop['topleft']['x']) / 2
                 peak_y = (maxdetection_crop['bottomright']['y'] + maxdetection_crop['topleft']['y']) / 2
 
-                target_h_crop = best_crop[3]
-                target_w_crop = best_crop[2]
+                if best_crop[3] > 0 and best_crop[2] > 0:
+                    target_h_crop = best_crop[3]
+                    target_w_crop = best_crop[2]
                 #print([peak_x,peak_y])
 
-                reinitialize = True
+
 
 
                 # generate an augmentation map
                 score_augmentation = np.full((design.search_sz, design.search_sz), float(min_score))
                 for x in range(int(peak_x - 5), int(peak_x + 5)):
                     for y in range(int(peak_y - 5), int(peak_y + 5)):
-                        score_augmentation[y, x] = max_score
+                        if x < design.search_sz and y < design.search_sz:
+                            score_augmentation[y, x] = max_score
 
                 score_augmentation = imresize(score_augmentation, (final_score_sz,final_score_sz),'bicubic')
                 #np.multiply(score_augmentation,g, score_augmentation)
@@ -180,37 +187,54 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
                 target_h = ((hp.scale_lr) * bbox_frame[3] + (1 - hp.scale_lr) * target_h)
                 target_w = ((hp.scale_lr) * bbox_frame[2] + (1 - hp.scale_lr) * target_w)
 
+                # update score map
+
+                score_updated = (1 - hp.scale_lr) * score_ + (hp.scale_lr) * score_augmentation
+                score_updated = score_updated - np.min(score_updated)
+                score_updated = score_updated / np.sum(score_updated)
+                # apply displacement penalty
+                score_updated = (1 - hp.window_influence) * score_updated + hp.window_influence * penalty
+                pos_x, pos_y = _update_target_position(pos_x, pos_y, score_updated, final_score_sz, design.tot_stride,
+                                                       design.search_sz, hp.response_up, x_sz)
             # run detector on whole frame
             else:
-                result = tfnet.return_predict(image_)
+                best_crop = [0,0,0,0]
+                if OOB == True:
+                    result = tfnet.return_predict(image_)
 
-                # print ([sorted([object['confidence'] for object in result])])
-                if len(result) > 0:
-                    maxdetection = max(result, key=lambda x: x['confidence'])
+                    # print ([sorted([object['confidence'] for object in result])])
+                    if len(result) > 0:
+                        maxdetection = max(result, key=lambda x: x['confidence'])
 
                     # mindetection = min(result, key=lambda x: x['confidence'])
                     # for detection in result:
                     #    bbox_detection.append([detection['topleft']['x'],detection['topleft']['y'], detection['bottomright']['x'] - detection['topleft']['x'], detection['bottomright']['y'] - detection['topleft']['y']])
 
-                    best_detection = ([maxdetection['topleft']['x'], maxdetection['topleft']['y'],
+                        best_detection = ([maxdetection['topleft']['x'], maxdetection['topleft']['y'],
                                        maxdetection['bottomright']['x'] - maxdetection['topleft']['x'],
                                        maxdetection['bottomright']['y'] - maxdetection['topleft']['y']])
 
+                    # update score map
 
 
-            #update score map
+                score_ = score_ - np.min(score_)
+                score_ = score_ / np.sum(score_)
+                # apply displacement penalty
+                score_= (1 - hp.window_influence) * score_ + hp.window_influence * penalty
+                pos_x, pos_y = _update_target_position(pos_x, pos_y, score_, final_score_sz,
+                                                           design.tot_stride,
+                                                           design.search_sz, hp.response_up, x_sz)
 
-            score_updated = (1 - hp.scale_lr)*score_ + (hp.scale_lr) *score_augmentation
-            score_updated = score_updated - np.min(score_updated)
-            score_updated = score_updated / np.sum(score_updated)
-            # apply displacement penalty
-            score_updated = (1 - hp.window_influence) * score_updated + hp.window_influence * penalty
-            pos_x, pos_y = _update_target_position(pos_x, pos_y, score_updated, final_score_sz, design.tot_stride, design.search_sz, hp.response_up, x_sz)
+
+
+
+
             #print(pos_x,pos_y)
 
             # convert <cx,cy,w,h> to <x,y,w,h> and save output
             bboxes[i,:] = pos_x-target_w/2, pos_y-target_h/2, target_w, target_h
-            bbox_detection = [0, 0, 0, 0]
+            #bbox_detection = [0, 0, 0, 0]
+            #print ([target_w, target_h])
 
 
 
@@ -271,8 +295,8 @@ def tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, 
                 z_sz = (1-hp.scale_lr)*z_sz + hp.scale_lr*scaled_exemplar[new_scale_id]
 
             if run.visualization:
-                #show_frame(image_, bboxes[i,:],bbox_detection, i, video_name,1)
-                show_crops(x_crops_, best_crop,i,video_name, 2)
+                show_frame(image_, bboxes[i,:],bbox_detection, i, video_name,1)
+                #show_crops(x_crops_, best_crop,i,video_name, 2)
                 #show_scores(scores_,1)
                 #show_score(score_,i, video_name,1)
                 #show_score(score_augmentation, i, video_name,1)

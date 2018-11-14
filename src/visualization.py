@@ -17,7 +17,7 @@ def show_frame(frame, bbox, bbox_detection, frame_number, video, fig_n):
     #    ax.imshow(np.uint8(frame))
     #    ax.add_patch(r)
     plt.ion()
-    plt.savefig("./data/local_detector/" + str(video)+"/" + str(frame_number) + ".png")
+    plt.savefig("./data/" + str(video)+"/" + str(frame_number) + ".png")
     plt.show()
     plt.pause(0.001)
     plt.clf()

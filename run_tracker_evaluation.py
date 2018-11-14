@@ -7,7 +7,7 @@ import src.siamese as siam
 from src.tracker import tracker
 from src.parse_arguments import parse_arguments
 from src.region_to_bbox import region_to_bbox
-
+import csv
 
 def main():
     # avoid printing TF debugging information
@@ -22,7 +22,8 @@ def main():
     final_score_sz = hp.response_up * (design.score_sz - 1) + 1
     # build TF graph once for all
     filename, image, templates_z, scores, z_crops, x_crops, anchor_coord = siam.build_tracking_graph(final_score_sz, design, env)
-
+    #redetection threshold range
+    test_range = [10] #ge(11,15,1)
     # iterate through all videos of evaluation.dataset
     if evaluation.video == 'all':
         dataset_folder = os.path.join(env.root_dataset, evaluation.dataset)
@@ -38,47 +39,53 @@ def main():
             gt, frame_name_list, frame_sz, n_frames = _init_video(env, evaluation, videos_list[i])
             starts = np.rint(np.linspace(0, n_frames - 1, evaluation.n_subseq + 1))
             starts = starts[0:evaluation.n_subseq]
-            for j in range(evaluation.n_subseq):
-                start_frame = int(starts[j])
-                gt_ = gt[start_frame:, :]
-                frame_name_list_ = frame_name_list[start_frame:]
-                pos_x, pos_y, target_w, target_h = region_to_bbox(gt_[0])
-                idx = i * evaluation.n_subseq + j
-                bboxes, speed[idx] = tracker(hp, run, design, frame_name_list_, pos_x, pos_y,
-                                                                     target_w, target_h, final_score_sz, filename,
-                                                                     image, templates_z, scores, start_frame, frame_sz)
-                lengths[idx], precisions[idx], precisions_auc[idx], ious[idx] = _compile_results(gt_, bboxes, evaluation.dist_threshold)
-                print str(i) + ' -- ' + videos_list[i] + \
-                ' -- Precision: ' + "%.2f" % precisions[idx] + \
-                ' -- Precisions AUC: ' + "%.2f" % precisions_auc[idx] + \
-                ' -- IOU: ' + "%.2f" % ious[idx] + \
-                ' -- Speed: ' + "%.2f" % speed[idx] + ' --'
-                print
+            for redetection_t in test_range:
+                for j in range(evaluation.n_subseq):
+                    start_frame = int(starts[j])
+                    gt_ = gt[start_frame:, :]
+                    frame_name_list_ = frame_name_list[start_frame:]
+                    pos_x, pos_y, target_w, target_h = region_to_bbox(gt_[0])
+                    idx = i * evaluation.n_subseq + j
+                    bboxes, speed[idx] = tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz,
+                                filename, image, templates_z, scores, evaluation.start_frame, evaluation.video, frame_sz, z_crops, x_crops, anchor_coord, redetection_t)
+                    lengths[idx], precisions[idx], precisions_auc[idx], ious[idx] = _compile_results(gt_, bboxes, evaluation.dist_threshold)
+                    print str(i) + ' -- ' + videos_list[i] + \
+                    ' -- Precision: ' + "%.2f" % precisions[idx] + \
+                    ' -- Precisions AUC: ' + "%.2f" % precisions_auc[idx] + \
+                    ' -- IOU: ' + "%.2f" % ious[idx] + \
+                    ' -- Speed: ' + "%.2f" % speed[idx] + ' --'
+                    print
 
-        tot_frames = np.sum(lengths)
-        mean_precision = np.sum(precisions * lengths) / tot_frames
-        mean_precision_auc = np.sum(precisions_auc * lengths) / tot_frames
-        mean_iou = np.sum(ious * lengths) / tot_frames
-        mean_speed = np.sum(speed * lengths) / tot_frames
-        print '-- Overall stats (averaged per frame) on ' + str(nv) + ' videos (' + str(tot_frames) + ' frames) --'
-        print ' -- Precision ' + "(%d px)" % evaluation.dist_threshold + ': ' + "%.2f" % mean_precision +\
-              ' -- Precisions AUC: ' + "%.2f" % mean_precision_auc +\
-              ' -- IOU: ' + "%.2f" % mean_iou +\
-              ' -- Speed: ' + "%.2f" % mean_speed + ' --'
-        print
+        #tot_frames = np.sum(lengths)
+        #mean_precision = np.sum(precisions * lengths) / tot_frames
+        #mean_precision_auc = np.sum(precisions_auc * lengths) / tot_frames
+        #mean_iou = np.sum(ious * lengths) / tot_frames
+        #mean_speed = np.sum(speed * lengths) / tot_frames
+        #print '-- Overall stats (averaged per frame) on ' + str(nv) + ' videos (' + str(tot_frames) + ' frames) --'
+        #print ' -- Precision ' + "(%d px)" % evaluation.dist_threshold + ': ' + "%.2f" % mean_precision +\
+        #      ' -- Precisions AUC: ' + "%.2f" % mean_precision_auc +\
+        #      ' -- IOU: ' + "%.2f" % mean_iou +\
+        #      ' -- Speed: ' + "%.2f" % mean_speed + ' --'
+        #print
 
     else:
-        gt, frame_name_list, frame_sz, _ = _init_video(env, evaluation, evaluation.video)
-        pos_x, pos_y, target_w, target_h = region_to_bbox(gt[evaluation.start_frame])
-        bboxes, speed = tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz,
-                                filename, image, templates_z, scores, evaluation.start_frame, evaluation.video, frame_sz, z_crops, x_crops, anchor_coord)
-        _, precision, precision_auc, iou = _compile_results(gt, bboxes, evaluation.dist_threshold)
-        print evaluation.video + \
+        for redetection_t in test_range:
+            gt, frame_name_list, frame_sz, _ = _init_video(env, evaluation, evaluation.video)
+            pos_x, pos_y, target_w, target_h = region_to_bbox(gt[evaluation.start_frame])
+            bboxes, speed = tracker(hp, run, design, frame_name_list, pos_x, pos_y, target_w, target_h, final_score_sz,
+                                filename, image, templates_z, scores, evaluation.start_frame, evaluation.video, frame_sz, z_crops, x_crops, anchor_coord, redetection_t)
+            _, precision, precision_auc, iou = _compile_results(gt, bboxes, evaluation.dist_threshold)
+
+            with open("bbox.csv", "w+b") as f:
+                writer = csv.writer(f)
+                writer.writerows(bboxes)
+            print evaluation.video + \
+              ' -- Precision ' + str(redetection_t) + \
               ' -- Precision ' + "(%d px)" % evaluation.dist_threshold + ': ' + "%.2f" % precision +\
               ' -- Precision AUC: ' + "%.2f" % precision_auc + \
               ' -- IOU: ' + "%.2f" % iou + \
               ' -- Speed: ' + "%.2f" % speed + ' --'
-        print
+            print
 
 
 def _compile_results(gt, bboxes, dist_threshold):
